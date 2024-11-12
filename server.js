@@ -1,4 +1,3 @@
-// Import required packages
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -7,11 +6,10 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-const rooms = {}; // In-memory storage for messages
+// Serve static files from the 'public' folder
+app.use(express.static('public'));
 
-app.get('/', (req, res) => {
-    res.sendFile(__dirname + '/index.html'); // serve HTML for chat
-});
+const rooms = {}; // In-memory storage for messages
 
 io.on('connection', (socket) => {
     console.log('A user connected');
