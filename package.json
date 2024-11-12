@@ -1,0 +1,20 @@
+{
+  "name": "live-chatroom",
+  "version": "1.0.0",
+  "description": "A live chatroom with room codes and auto-clearing messages when everyone leaves.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": ["chatroom", "node", "socket.io", "express"],
+  "author": "Geo",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.6.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
