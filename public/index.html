@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Chatroom</title>
+    <style>
+        /* Quick styling */
+        body { font-family: Arial, sans-serif; }
+        #messages { list-style-type: none; padding: 0; }
+        #form { display: flex; }
+        #input { flex-grow: 1; }
+    </style>
+</head>
+<body>
+    <h1>Live Chatroom</h1>
+    <input id="roomCode" placeholder="Enter room code" />
+    <button onclick="joinRoom()">Join Room</button>
+    <ul id="messages"></ul>
+    <form id="form" onsubmit="sendMessage(event)">
+        <input id="input" autocomplete="off" placeholder="Type a message..." />
+        <button>Send</button>
+    </form>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let roomCode = '';
+
+        function joinRoom() {
+            roomCode = document.getElementById('roomCode').value;
+            socket.emit('joinRoom', roomCode);
+            document.getElementById('roomCode').disabled = true;
+        }
+
+        socket.on('chatHistory', (messages) => {
+            messages.forEach((msg) => addMessage(msg));
+        });
+
+        socket.on('chatMessage', (message) => {
+            addMessage(message);
+        });
+
+        function sendMessage(event) {
+            event.preventDefault();
+            const input = document.getElementById('input');
+            if (input.value) {
+                socket.emit('chatMessage', { roomCode, message: input.value });
+                input.value = '';
+            }
+        }
+
+        function addMessage(message) {
+            const item = document.createElement('li');
+            item.textContent = message;
+            document.getElementById('messages').appendChild(item);
+        }
+    </script>
+</body>
+</html>
