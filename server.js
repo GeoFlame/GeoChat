@@ -6,10 +6,9 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Serve static files from the 'public' folder
 app.use(express.static('public'));
 
-const rooms = {}; // In-memory storage for messages and nicknames per room
+const rooms = {}; // In-memory storage for messages, nicknames, and bans per room
 
 io.on('connection', (socket) => {
     console.log('A user connected');
@@ -17,12 +16,17 @@ io.on('connection', (socket) => {
     // Join a room with a code and nickname
     socket.on('joinRoom', ({ roomCode, nickname }, callback) => {
         if (!rooms[roomCode]) {
-            rooms[roomCode] = { messages: [], nicknames: new Set() };
+            rooms[roomCode] = { messages: [], nicknames: new Set(), bannedUsers: new Set() };
         }
 
-        // Check if the nickname is already taken in the room
+        // Check if the nickname is banned in the room
+        if (rooms[roomCode].bannedUsers.has(nickname)) {
+            return callback('You are banned from this room.');
+        }
+
+        // Check if the nickname is taken in the room
         if (rooms[roomCode].nicknames.has(nickname)) {
-            return callback(true); // Nickname is taken
+            return callback('Nickname is already taken.');
         } 
 
         // Everything's good, join the room
@@ -37,46 +41,40 @@ io.on('connection', (socket) => {
 
         // Send the existing chat history
         socket.emit('chatHistory', rooms[roomCode].messages);
-        callback(false); // Nickname is unique and accepted
+        callback(null); // Successfully joined
     });
 
     // Handle new messages
     socket.on('chatMessage', ({ roomCode, message }) => {
-        if (!rooms[roomCode]) return; // Ignore if room doesn't exist
+        if (!rooms[roomCode]) return;
 
         const fullMessage = `[${socket.nickname}]: ${message}`;
         rooms[roomCode].messages.push(fullMessage);
 
-        // Broadcast the message to everyone in the room
         io.to(roomCode).emit('chatMessage', { nickname: socket.nickname, message });
     });
 
     // Handle kick command
-    // Handle kick command
     socket.on('kickUser', ({ roomCode, targetNickname }) => {
-        if (!rooms[roomCode]) return; // If the room doesn't exist
-    
-        // Check if the user sending the kick command is an admin or has permission to kick
+        if (!rooms[roomCode]) return;
+
         if (socket.nickname !== 'Geo') {
             socket.emit('chatMessage', { nickname: 'System', message: 'You do not have permission to kick users.' });
             return;
         }
-    
-        // Check if the target nickname is in the room
+
         if (rooms[roomCode].nicknames.has(targetNickname)) {
-            // Notify all users that someone is kicked
             io.to(roomCode).emit('chatMessage', { nickname: 'System', message: `${targetNickname} has been kicked from the room.` });
-    
-            // Remove the user from the room
+
             const targetSocketId = [...io.sockets.adapter.rooms.get(roomCode)].find((id) => {
-                const socket = io.sockets.sockets.get(id);
-                return socket && socket.nickname === targetNickname;
+                const targetSocket = io.sockets.sockets.get(id);
+                return targetSocket && targetSocket.nickname === targetNickname;
             });
-    
+
             if (targetSocketId) {
                 const targetSocket = io.sockets.sockets.get(targetSocketId);
-                targetSocket.emit('userKicked'); // Emit a special event to let the client know they're kicked
-                targetSocket.disconnect(); // Disconnect the user from the room
+                targetSocket.emit('userKicked');
+                targetSocket.disconnect();
                 rooms[roomCode].nicknames.delete(targetNickname);
             }
         } else {
@@ -84,6 +82,34 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Handle ban command
+    socket.on('banUser', ({ roomCode, targetNickname }) => {
+        if (!rooms[roomCode]) return;
+
+        if (socket.nickname !== 'Geo') {
+            socket.emit('chatMessage', { nickname: 'System', message: 'You do not have permission to ban users.' });
+            return;
+        }
+
+        if (rooms[roomCode].nicknames.has(targetNickname)) {
+            rooms[roomCode].bannedUsers.add(targetNickname); // Add nickname to banned list
+            io.to(roomCode).emit('chatMessage', { nickname: 'System', message: `${targetNickname} has been banned from the room.` });
+
+            const targetSocketId = [...io.sockets.adapter.rooms.get(roomCode)].find((id) => {
+                const targetSocket = io.sockets.sockets.get(id);
+                return targetSocket && targetSocket.nickname === targetNickname;
+            });
+
+            if (targetSocketId) {
+                const targetSocket = io.sockets.sockets.get(targetSocketId);
+                targetSocket.emit('userBanned');
+                targetSocket.disconnect();
+                rooms[roomCode].nicknames.delete(targetNickname);
+            }
+        } else {
+            socket.emit('chatMessage', { nickname: 'System', message: `${targetNickname} is not in the room.` });
+        }
+    });
 
     // Handle user disconnect
     socket.on('disconnecting', () => {
@@ -94,7 +120,6 @@ io.on('connection', (socket) => {
             rooms[roomCode].nicknames.delete(nickname);
             console.log(`${nickname} left room: ${roomCode}`);
 
-            // If the room is empty, clear its messages
             if (io.sockets.adapter.rooms.get(roomCode)?.size === 1) {
                 delete rooms[roomCode];
                 console.log(`Room ${roomCode} is empty, messages cleared.`);
