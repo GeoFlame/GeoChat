@@ -42,6 +42,7 @@
         <h2>Enter a nickname and room code:</h2>
         <input type="text" id="nicknameInput" placeholder="Choose a unique nickname" />
         <input type="text" id="roomCode" placeholder="Enter room code" />
+        <input type="checkbox" id="publicRoom" /> Public Room
         <button onclick="joinRoom()">Join Room</button>
         <p id="errorMsg"></p>
     </div>
@@ -53,6 +54,7 @@
             <input id="input" autocomplete="off" placeholder="Type a message..." />
             <button>Send</button>
         </form>
+        <button onclick="kickUser()">Kick User</button>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -64,13 +66,14 @@
         function joinRoom() {
             roomCode = document.getElementById('roomCode').value.trim();
             nickname = document.getElementById('nicknameInput').value.trim();
+            const isPublic = document.getElementById('publicRoom').checked;
+
             if (!roomCode || !nickname) {
                 document.getElementById('errorMsg').innerText = "Please enter both a nickname and a room code!";
                 return;
             }
 
-            // Send join room request to server
-            socket.emit('joinRoom', { roomCode, nickname }, (isNicknameTaken) => {
+            socket.emit('joinRoom', { roomCode, nickname, isPublic }, (isNicknameTaken) => {
                 if (isNicknameTaken) {
                     document.getElementById('errorMsg').innerText = "Nickname already taken!";
                 } else {
@@ -85,7 +88,12 @@
         });
 
         socket.on('chatMessage', ({ nickname, message }) => {
-            addMessage(`[${nickname}]: ${message}`);
+            addMessage(`[${nickname} 👑]: ${message}`);
+        });
+
+        socket.on('kicked', () => {
+            alert('You have been kicked from the chat!');
+            window.location.reload();
         });
 
         function sendMessage(event) {
@@ -102,6 +110,13 @@
             item.textContent = message;
             document.getElementById('messages').appendChild(item);
             document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+        }
+
+        function kickUser() {
+            const nicknameToKick = prompt("Enter the nickname of the user you want to kick:");
+            if (nicknameToKick) {
+                socket.emit('kickUser', nicknameToKick);
+            }
         }
     </script>
 </body>
