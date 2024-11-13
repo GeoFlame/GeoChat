@@ -55,7 +55,7 @@ io.on('connection', (socket) => {
     });
 
     // Handle kick command
-    socket.on('kickUser', ({ roomCode, targetNickname }) => {
+    socket.on('kickUser', ({ roomCode, targetNickname, password }) => {
         if (!rooms[roomCode]) return;
 
         if (socket.nickname !== 'Geo') {
