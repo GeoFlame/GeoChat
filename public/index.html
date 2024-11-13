@@ -69,7 +69,6 @@
                 return;
             }
 
-            // Send join room request to server
             socket.emit('joinRoom', { roomCode, nickname }, (isNicknameTaken) => {
                 if (isNicknameTaken) {
                     document.getElementById('errorMsg').innerText = "Nickname already taken!";
@@ -86,6 +85,11 @@
 
         socket.on('chatMessage', ({ nickname, message }) => {
             addMessage(`[${nickname}]: ${message}`);
+        });
+
+        socket.on('kicked', (message) => {
+            alert(message);
+            location.reload();
         });
 
         function sendMessage(event) {
