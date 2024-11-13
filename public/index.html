@@ -101,15 +101,17 @@
                 document.getElementById('errorMsg').innerText = "Please enter both a nickname and a room code!";
                 return;
             }
-            socket.emit('joinRoom', { roomCode, nickname }, (isNicknameTaken) => {
-                if (isNicknameTaken) {
-                    document.getElementById('errorMsg').innerText = "Nickname already taken!";
+            socket.emit('joinRoom', { roomCode, nickname }, (error) => {
+                if (error) {
+                    document.getElementById('errorMsg').innerText = error; // Show any error from the server
                 } else {
+                    // No error, proceed to show the chatroom
                     document.getElementById('nicknamePrompt').style.display = 'none';
                     document.getElementById('chatroom').style.display = 'block';
                 }
             });
         }
+
 
         socket.on('chatHistory', (messages) => {
             messages.forEach((msg) => addMessage(msg));
