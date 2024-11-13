@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Live Chatroom</title>
     <style>
+        /* Quick styling */
         body {
             font-family: Arial, sans-serif;
             display: flex;
@@ -13,44 +14,27 @@
             justify-content: center;
             min-height: 100vh;
             margin: 0;
-            background-color: #f1f5f8;
-            color: #333;
+            background-color: #f5f5f5;
         }
         #nicknamePrompt, #chatroom {
-            max-width: 500px;
+            max-width: 400px;
             width: 100%;
             text-align: center;
             margin-bottom: 20px;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0px 5px 15px rgba(0, 0, 0, 0.1);
-            background-color: #fff;
         }
         #messages {
             list-style-type: none;
             padding: 0;
             height: 300px;
             overflow-y: auto;
-            background-color: #f9f9f9;
+            background-color: #fff;
             border: 1px solid #ddd;
             margin: 20px 0;
             padding: 10px;
-            border-radius: 8px;
         }
         #form { display: flex; }
-        #input { flex-grow: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc; margin-right: 10px; }
-        button {
-            padding: 10px 15px;
-            border-radius: 8px;
-            border: none;
-            background-color: #4CAF50;
-            color: white;
-            cursor: pointer;
-        }
-        button:hover { background-color: #45a049; }
+        #input { flex-grow: 1; padding: 8px; }
         #errorMsg { color: red; }
-        #joinBtn { background-color: #008CBA; }
-        #joinBtn:hover { background-color: #007B9A; }
     </style>
 </head>
 <body>
@@ -58,79 +42,66 @@
         <h2>Enter a nickname and room code:</h2>
         <input type="text" id="nicknameInput" placeholder="Choose a unique nickname" />
         <input type="text" id="roomCode" placeholder="Enter room code" />
-        <label>
-            <input type="checkbox" id="publicRoom" /> Public Room
-        </label>
-        <button id="joinBtn" onclick="joinRoom()">Join Room</button>
-        <div id="errorMsg"></div>
+        <button onclick="joinRoom()">Join Room</button>
+        <p id="errorMsg"></p>
     </div>
 
     <div id="chatroom" style="display:none;">
-        <h3>Welcome to the chat, <span id="userNickname"></span></h3>
+        <h2>Live Chatroom</h2>
         <ul id="messages"></ul>
         <form id="form" onsubmit="sendMessage(event)">
-            <input type="text" id="input" placeholder="Type your message" />
-            <button type="submit">Send</button>
+            <input id="input" autocomplete="off" placeholder="Type a message..." />
+            <button>Send</button>
         </form>
-        <div>
-            <input type="text" id="kickUserInput" placeholder="Nickname to kick" />
-            <button onclick="kickUser()">Kick</button>
-        </div>
     </div>
 
+    <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-        let roomCode;
-        let nickname;
-        let isPublic;
+        let roomCode = '';
+        let nickname = '';
 
         function joinRoom() {
-            nickname = document.getElementById('nicknameInput').value.trim();
             roomCode = document.getElementById('roomCode').value.trim();
-            isPublic = document.getElementById('publicRoom').checked;
-
-            if (!nickname || !roomCode) {
-                document.getElementById('errorMsg').textContent = 'Nickname and room code are required!';
+            nickname = document.getElementById('nicknameInput').value.trim();
+            if (!roomCode || !nickname) {
+                document.getElementById('errorMsg').innerText = "Please enter both a nickname and a room code!";
                 return;
             }
 
-            socket.emit('joinRoom', { roomCode, nickname, isPublic }, (error) => {
-                if (error) {
-                    document.getElementById('errorMsg').textContent = 'Nickname is taken! Choose another one.';
+            // Send join room request to server
+            socket.emit('joinRoom', { roomCode, nickname }, (isNicknameTaken) => {
+                if (isNicknameTaken) {
+                    document.getElementById('errorMsg').innerText = "Nickname already taken!";
                 } else {
                     document.getElementById('nicknamePrompt').style.display = 'none';
                     document.getElementById('chatroom').style.display = 'block';
-                    document.getElementById('userNickname').textContent = nickname;
                 }
             });
         }
 
-        socket.on('chatMessage', ({ nickname, message }) => {
-            const li = document.createElement('li');
-            li.textContent = message;
-            document.getElementById('messages').appendChild(li);
-            document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+        socket.on('chatHistory', (messages) => {
+            messages.forEach((msg) => addMessage(msg));
         });
 
-        socket.on('kicked', () => {
-            alert('You have been kicked from the room!');
-            window.location.reload();
+        socket.on('chatMessage', ({ nickname, message }) => {
+            addMessage(`[${nickname}]: ${message}`);
         });
 
         function sendMessage(event) {
             event.preventDefault();
-            const message = document.getElementById('input').value.trim();
-            if (message) {
-                socket.emit('chatMessage', { roomCode, message });
-                document.getElementById('input').value = '';
+            const input = document.getElementById('input');
+            if (input.value) {
+                socket.emit('chatMessage', { roomCode, message: input.value });
+                input.value = '';
             }
         }
 
-        function kickUser() {
-            const userToKick = document.getElementById('kickUserInput').value.trim();
-            if (userToKick) {
-                socket.emit('kickUser', userToKick, roomCode);
-            }
+        function addMessage(message) {
+            const item = document.createElement('li');
+            item.textContent = message;
+            document.getElementById('messages').appendChild(item);
+            document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
         }
     </script>
 </body>
