@@ -14,16 +14,16 @@ const rooms = {}; // In-memory storage for messages and nicknames per room
 io.on('connection', (socket) => {
     console.log('A user connected');
 
-    // Join a room with a code and nickname
-    socket.on('joinRoom', ({ roomCode, nickname }, callback) => {
+    // Join a room with a code, nickname, and privacy setting
+    socket.on('joinRoom', ({ roomCode, nickname, isPublic }, callback) => {
         if (!rooms[roomCode]) {
-            rooms[roomCode] = { messages: [], nicknames: new Set() };
+            rooms[roomCode] = { messages: [], nicknames: new Set(), isPublic: isPublic || false, creator: nickname };
         }
 
         // Check if the nickname is already taken in the room
         if (rooms[roomCode].nicknames.has(nickname)) {
             return callback(true); // Nickname is taken
-        } 
+        }
 
         // Everything's good, join the room
         socket.join(roomCode);
@@ -37,6 +37,10 @@ io.on('connection', (socket) => {
 
         // Send the existing chat history
         socket.emit('chatHistory', rooms[roomCode].messages);
+
+        // Notify others in the room
+        io.to(roomCode).emit('chatMessage', { nickname: 'System', message: `${nickname} has joined the room.` });
+        
         callback(false); // Nickname is unique and accepted
     });
 
@@ -44,11 +48,29 @@ io.on('connection', (socket) => {
     socket.on('chatMessage', ({ roomCode, message }) => {
         if (!rooms[roomCode]) return; // Ignore if room doesn't exist
 
+        // If user is kicked, do not broadcast
+        if (socket.kicked) {
+            return;
+        }
+
         const fullMessage = `[${socket.nickname}]: ${message}`;
         rooms[roomCode].messages.push(fullMessage);
 
         // Broadcast the message to everyone in the room
         io.to(roomCode).emit('chatMessage', { nickname: socket.nickname, message });
+    });
+
+    // Handle user kick command
+    socket.on('kickUser', (nickname) => {
+        const roomCode = socket.roomCode;
+        if (rooms[roomCode] && socket.nickname === rooms[roomCode].creator) {
+            const targetSocket = Array.from(io.sockets.adapter.rooms.get(roomCode)).find(s => s.nickname === nickname);
+            if (targetSocket) {
+                targetSocket.kicked = true;
+                targetSocket.emit('kicked');
+                io.to(roomCode).emit('chatMessage', { nickname: 'System', message: `${nickname} was kicked from the room.` });
+            }
+        }
     });
 
     // Handle user disconnect
@@ -64,6 +86,8 @@ io.on('connection', (socket) => {
             if (io.sockets.adapter.rooms.get(roomCode)?.size === 1) {
                 delete rooms[roomCode];
                 console.log(`Room ${roomCode} is empty, messages cleared.`);
+            } else {
+                io.to(roomCode).emit('chatMessage', { nickname: 'System', message: `${nickname} has left the room.` });
             }
         }
     });
