@@ -124,6 +124,11 @@
             location.reload();
         });
 
+        socket.on('userBanned', () => {
+            alert("You have been banned from this room!");
+            location.reload();
+        });
+
         function sendMessage(event) {
             event.preventDefault();
             const input = document.getElementById('input');
@@ -149,11 +154,6 @@
                 input.value = '';
             }
         }
-
-        socket.on('userBanned', () => {
-            alert("You have been banned from this room!");
-            location.reload();
-        });
 
         function addMessage(message) {
             const item = document.createElement('li');
