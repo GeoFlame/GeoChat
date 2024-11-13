@@ -85,31 +85,36 @@ io.on('connection', (socket) => {
     // Handle ban command
     socket.on('banUser', ({ roomCode, targetNickname }) => {
         if (!rooms[roomCode]) return;
-
+    
+        // Only allow "Geo" to perform banning
         if (socket.nickname !== 'Geo') {
             socket.emit('chatMessage', { nickname: 'System', message: 'You do not have permission to ban users.' });
             return;
         }
-
+    
+        // Check if the target user is in the room
         if (rooms[roomCode].nicknames.has(targetNickname)) {
             rooms[roomCode].bannedUsers.add(targetNickname); // Add nickname to banned list
+            rooms[roomCode].nicknames.delete(targetNickname); // Remove the nickname from the list
+    
             io.to(roomCode).emit('chatMessage', { nickname: 'System', message: `${targetNickname} has been banned from the room.` });
-
+    
+            // Find the target user in the room and disconnect them
             const targetSocketId = [...io.sockets.adapter.rooms.get(roomCode)].find((id) => {
                 const targetSocket = io.sockets.sockets.get(id);
                 return targetSocket && targetSocket.nickname === targetNickname;
             });
-
+    
             if (targetSocketId) {
                 const targetSocket = io.sockets.sockets.get(targetSocketId);
                 targetSocket.emit('userBanned');
                 targetSocket.disconnect();
-                rooms[roomCode].nicknames.delete(targetNickname);
             }
         } else {
             socket.emit('chatMessage', { nickname: 'System', message: `${targetNickname} is not in the room.` });
         }
     });
+
 
     // Handle user disconnect
     socket.on('disconnecting', () => {
