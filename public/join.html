@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Join or Create a Chatroom</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5;
+        }
+        #joinPage {
+            text-align: center;
+        }
+        #publicRoomsList {
+            margin-top: 20px;
+            list-style-type: none;
+            padding: 0;
+        }
+        #publicRoomsList li {
+            margin: 5px 0;
+            padding: 8px;
+            background-color: #e0e0e0;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="joinPage">
+        <h2>Join or Create a Chatroom</h2>
+        <input type="text" id="roomCodeInput" placeholder="Enter room code" />
+        <input type="text" id="nicknameInput" placeholder="Choose a nickname" />
+        <button onclick="joinRoom()">Join Room</button>
+        <button onclick="createRoom()">Create Public Room</button>
+
+        <ul id="publicRoomsList"></ul>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let roomCode = '';
+        let nickname = '';
+
+        // Fetch public rooms from the server
+        function fetchPublicRooms() {
+            socket.emit('getPublicRooms');
+        }
+
+        // Handle public rooms list
+        socket.on('publicRooms', (rooms) => {
+            const list = document.getElementById('publicRoomsList');
+            list.innerHTML = ''; // Clear the list before updating
+
+            rooms.forEach(room => {
+                const listItem = document.createElement('li');
+                listItem.textContent = `Room Code: ${room}`;
+                list.appendChild(listItem);
+            });
+        });
+
+        // Call fetchPublicRooms when the page loads
+        window.onload = fetchPublicRooms;
+
+        // Join a room
+        function joinRoom() {
+            roomCode = document.getElementById('roomCodeInput').value.trim();
+            nickname = document.getElementById('nicknameInput').value.trim();
+            if (!roomCode || !nickname) {
+                alert("Please enter both a nickname and a room code!");
+                return;
+            }
+
+            socket.emit('joinRoom', { roomCode, nickname, isPublic: false }, (isNicknameTaken) => {
+                if (isNicknameTaken) {
+                    alert("Nickname already taken!");
+                } else {
+                    window.location.href = '/chat'; // Redirect to the chatroom
+                }
+            });
+        }
+
+        // Create a new public room
+        function createRoom() {
+            roomCode = prompt("Enter a room code for the new room:");
+            nickname = document.getElementById('nicknameInput').value.trim();
+            if (!roomCode || !nickname) {
+                alert("Please enter both a nickname and a room code!");
+                return;
+            }
+
+            socket.emit('joinRoom', { roomCode, nickname, isPublic: true }, (isNicknameTaken) => {
+                if (isNicknameTaken) {
+                    alert("Nickname already taken!");
+                } else {
+                    alert(`Room "${roomCode}" created and set as public!`);
+                    window.location.href = '/chat'; // Redirect to the chatroom
+                }
+            });
+        }
+    </script>
+</body>
+</html>
