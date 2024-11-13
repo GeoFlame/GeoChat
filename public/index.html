@@ -148,6 +148,16 @@
                     } else {
                         alert('Please specify a nickname to ban.');
                     }
+                    
+                } else if (message.startsWith('/gban')) {
+                    const targetNickname = prompt("Enter the nickname of the user you want to globally ban:");
+                    if (targetNickname) {
+                        const password = prompt("Admin password:");
+                        socket.emit('globalBanUser', { roomCode, targetNickname, password });
+                    } else {
+                        alert('Please specify a nickname to globally ban.');
+                    }
+                    
                 } else {
                     socket.emit('chatMessage', { roomCode, message });
                 }
