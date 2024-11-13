@@ -44,7 +44,7 @@ io.on('connection', (socket) => {
     socket.on('chatMessage', ({ roomCode, message }) => {
         if (!rooms[roomCode]) return; // Ignore if room doesn't exist
 
-        const fullMessage = [${socket.nickname}]: ${message};
+        const fullMessage = `[${socket.nickname}]: ${message}`;
         rooms[roomCode].messages.push(fullMessage);
 
         // Broadcast the message to everyone in the room
