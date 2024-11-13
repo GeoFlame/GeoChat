@@ -3,67 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Join or Create Room</title>
+    <title>Room Creation</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            background-color: #f5f5f5;
-        }
-        #roomSelection {
-            width: 100%;
-            max-width: 500px;
-            text-align: center;
-        }
-        #messages {
-            list-style-type: none;
-            padding: 0;
-            margin: 20px 0;
-        }
-        button {
-            padding: 10px 20px;
-            margin-top: 10px;
-        }
+        body { font-family: Arial, sans-serif; padding: 20px; background-color: #f5f5f5; }
+        #joinRoomForm { display: flex; flex-direction: column; width: 300px; margin: 0 auto; }
+        input { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        button { padding: 10px; background-color: #007BFF; color: #fff; border: none; border-radius: 5px; }
     </style>
 </head>
 <body>
-    <div id="roomSelection">
-        <h2>Join or Create a Room</h2>
-        <input type="text" id="roomCodeInput" placeholder="Enter room code" />
-        <input type="text" id="nicknameInput" placeholder="Enter nickname" />
-        <input type="checkbox" id="isPublic" /> Public Room
-        <button onclick="joinOrCreateRoom()">Join or Create Room</button>
-
-        <h3>Active Public Rooms</h3>
-        <ul id="activeRooms"></ul>
-    </div>
+    <h2>Join or Create a Room</h2>
+    <form id="joinRoomForm">
+        <input type="text" id="roomCodeInput" placeholder="Enter Room Code" required />
+        <input type="text" id="nicknameInput" placeholder="Enter Nickname" required />
+        <label>
+            <input type="checkbox" id="isPublic" /> Public Room
+        </label>
+        <button type="button" onclick="joinOrCreateRoom()">Join or Create Room</button>
+    </form>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-
-        // Fetch and display public rooms
-        function fetchPublicRooms() {
-            fetch('/rooms')
-                .then(response => response.json())
-                .then(data => {
-                    const roomList = document.getElementById('activeRooms');
-                    roomList.innerHTML = ''; // Clear the list before adding new rooms
-                    data.forEach(roomCode => {
-                        const listItem = document.createElement('li');
-                        listItem.textContent = `Room: ${roomCode}`;
-                        roomList.appendChild(listItem);
-                    });
-                });
-        }
-
-        // Fetch public rooms when the page loads
-        fetchPublicRooms();
 
         function joinOrCreateRoom() {
             const roomCode = document.getElementById('roomCodeInput').value.trim();
@@ -79,7 +40,7 @@
                 if (isNicknameTaken) {
                     alert('Nickname is already taken!');
                 } else {
-                    alert(`Joined room ${roomCode}`);
+                    // Redirect to the chat page after joining/creating the room
                     window.location.href = `/chat?roomCode=${roomCode}&nickname=${nickname}`;
                 }
             });
