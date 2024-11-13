@@ -10,13 +10,13 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const rooms = {}; // Store messages, nicknames, and admins per room
-const adminPassword = 'Geo'; // Replace with something more secure!
+const adminPassword = '12345'; // Replace with something more secure!
 
 io.on('connection', (socket) => {
     console.log('A user connected');
 
     // Join a room with a code and nickname
-    socket.on('joinRoom', ({ roomCode, nickname }, callback) => {
+    socket.on('joinRoom', ({ roomCode, nickname, password }, callback) => {
         if (!rooms[roomCode]) {
             rooms[roomCode] = { messages: [], nicknames: new Set(), admins: new Set() };
         }
@@ -35,7 +35,7 @@ io.on('connection', (socket) => {
         rooms[roomCode].nicknames.add(nickname);
 
         // Check if this user is joining as an admin
-        if (nickname === adminPassword) {
+        if (password === adminPassword) {
             rooms[roomCode].admins.add(nickname);
             socket.isAdmin = true;
             console.log(`${nickname} joined as an admin in room: ${roomCode}`);
