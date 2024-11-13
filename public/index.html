@@ -85,7 +85,7 @@
         });
 
         socket.on('chatMessage', ({ nickname, message }) => {
-            addMessage([${nickname}]: ${message});
+            addMessage(`[${nickname}]: ${message}`);
         });
 
         function sendMessage(event) {
