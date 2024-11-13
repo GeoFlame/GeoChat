@@ -88,6 +88,12 @@
             addMessage(`[${nickname}]: ${message}`);
         });
 
+        socket.on('userKicked', () => {
+            alert("You have been kicked from the room!");
+            location.reload(); // Reload the page to disconnect the user from the chatroom
+        });
+
+
         function sendMessage(event) {
             event.preventDefault();
             const input = document.getElementById('input');
