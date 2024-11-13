@@ -9,15 +9,20 @@ const io = new Server(server);
 // Serve static files from the 'public' folder
 app.use(express.static('public'));
 
-const rooms = {}; // In-memory storage for messages and nicknames per room
+const rooms = {}; // In-memory storage for messages, nicknames, and room settings
 
 io.on('connection', (socket) => {
     console.log('A user connected');
 
     // Join a room with a code and nickname
-    socket.on('joinRoom', ({ roomCode, nickname }, callback) => {
+    socket.on('joinRoom', ({ roomCode, nickname, isPublic }, callback) => {
         if (!rooms[roomCode]) {
-            rooms[roomCode] = { messages: [], nicknames: new Set(), creator: socket.id };
+            rooms[roomCode] = { 
+                messages: [],
+                nicknames: new Set(),
+                creator: socket.id,
+                isPublic: isPublic,
+            };
         }
 
         // Check if the nickname is already taken in the room
@@ -36,10 +41,19 @@ io.on('connection', (socket) => {
         console.log(`${nickname} joined room: ${roomCode}`);
 
         // Notify everyone in the room that someone has joined
-        io.to(roomCode).emit('chatMessage', { nickname: 'System', message: `${nickname} has joined the chat.` });
+        io.to(roomCode).emit('chatMessage', { 
+            nickname: 'System', 
+            message: `${nickname} has joined the chat.` 
+        });
 
         // Send the existing chat history
         socket.emit('chatHistory', rooms[roomCode].messages);
+        
+        // Send the room list to the join page if the room is public
+        if (isPublic) {
+            io.emit('updateRoomList', getPublicRooms());
+        }
+
         callback(false); // Nickname is unique and accepted
     });
 
@@ -47,14 +61,14 @@ io.on('connection', (socket) => {
     socket.on('chatMessage', ({ roomCode, message }) => {
         if (!rooms[roomCode]) return; // Ignore if room doesn't exist
 
-        const fullMessage = `[${socket.nickname}]: ${message}`;
+        const fullMessage = `[${socket.nickname}${rooms[roomCode].creator === socket.id ? ' 👑' : ''}]: ${message}`;
         rooms[roomCode].messages.push(fullMessage);
 
         // Broadcast the message to everyone in the room
         io.to(roomCode).emit('chatMessage', { nickname: socket.nickname, message });
     });
 
-    // Handle kick command (only for room creator)
+    // Handle kick command
     socket.on('kickUser', (userNickname, roomCode) => {
         const room = rooms[roomCode];
         if (!room) return;
@@ -70,6 +84,9 @@ io.on('connection', (socket) => {
             io.sockets.sockets.get(userSocketId).leave(roomCode);
             room.nicknames.delete(userNickname);
             io.to(roomCode).emit('chatMessage', { nickname: 'System', message: `${userNickname} has been kicked from the chat.` });
+            
+            // Show kicked screen
+            io.to(userSocketId).emit('kicked');
         }
     });
 
@@ -93,6 +110,11 @@ io.on('connection', (socket) => {
         }
     });
 });
+
+// Get a list of public rooms
+function getPublicRooms() {
+    return Object.keys(rooms).filter(roomCode => rooms[roomCode].isPublic);
+}
 
 server.listen(3000, () => {
     console.log('Server is running on http://localhost:3000');
