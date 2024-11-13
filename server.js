@@ -52,27 +52,38 @@ io.on('connection', (socket) => {
     });
 
     // Handle kick command
+    // Handle kick command
     socket.on('kickUser', ({ roomCode, targetNickname }) => {
         if (!rooms[roomCode]) return; // If the room doesn't exist
-
+    
         // Check if the user sending the kick command is an admin or has permission to kick
         if (socket.nickname !== 'Geo') {
             socket.emit('chatMessage', { nickname: 'System', message: 'You do not have permission to kick users.' });
             return;
         }
-
+    
         // Check if the target nickname is in the room
         if (rooms[roomCode].nicknames.has(targetNickname)) {
             // Notify all users that someone is kicked
             io.to(roomCode).emit('chatMessage', { nickname: 'System', message: `${targetNickname} has been kicked from the room.` });
-
+    
             // Remove the user from the room
-            io.sockets.sockets.get(socket.id).leave(roomCode);
-            rooms[roomCode].nicknames.delete(targetNickname);
+            const targetSocketId = [...io.sockets.adapter.rooms.get(roomCode)].find((id) => {
+                const socket = io.sockets.sockets.get(id);
+                return socket && socket.nickname === targetNickname;
+            });
+    
+            if (targetSocketId) {
+                const targetSocket = io.sockets.sockets.get(targetSocketId);
+                targetSocket.emit('userKicked'); // Emit a special event to let the client know they're kicked
+                targetSocket.disconnect(); // Disconnect the user from the room
+                rooms[roomCode].nicknames.delete(targetNickname);
+            }
         } else {
             socket.emit('chatMessage', { nickname: 'System', message: `${targetNickname} is not in the room.` });
         }
     });
+
 
     // Handle user disconnect
     socket.on('disconnecting', () => {
