@@ -1,61 +1,63 @@
 const express = require('express');
 const http = require('http');
-const socketIo = require('socket.io');
+const { Server } = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server);
+const io = new Server(server);
 
-app.use(express.static('public')); // Serve static files like HTML, CSS, etc.
+// Serve static files from the 'public' folder
+app.use(express.static('public'));
 
-const rooms = {}; // Store rooms and their data
+const rooms = {}; // In-memory storage for messages and nicknames per room
+const publicRooms = {}; // Stores public rooms to show them in the join page
 
-// Serve the homepage with the room joining/creating form
-app.get('/', (req, res) => {
-    res.sendFile(__dirname + '/public/index.html');
+// Serve the HTML for joining or creating a room
+app.get('/join', (req, res) => {
+    res.sendFile(__dirname + '/join.html');
 });
 
-// Serve the /chat page
+// Serve the HTML for the chatroom
 app.get('/chat', (req, res) => {
-    res.sendFile(__dirname + '/public/chat.html');
+    res.sendFile(__dirname + '/chat.html');
 });
 
-// Socket.io connection logic
+// Handle room creation and joining
 io.on('connection', (socket) => {
-    console.log('A user connected:', socket.id);
+    console.log('A user connected');
 
+    // Join a room with a code and nickname
     socket.on('joinRoom', ({ roomCode, nickname, isPublic }, callback) => {
-        // Check if the nickname is already taken in the room
-        if (rooms[roomCode] && rooms[roomCode].users.includes(nickname)) {
-            return callback(true); // Nickname taken
-        }
-
-        // Add the user to the room
         if (!rooms[roomCode]) {
-            rooms[roomCode] = {
-                users: [],
-                messages: [],
-                isPublic: isPublic || false,
-            };
+            rooms[roomCode] = { messages: [], nicknames: new Set(), isPublic: isPublic || false };
         }
 
-        rooms[roomCode].users.push(nickname);
-        socket.nickname = nickname;
+        // Check if the nickname is already taken in the room
+        if (rooms[roomCode].nicknames.has(nickname)) {
+            return callback(true); // Nickname is taken
+        }
+
+        // Everything's good, join the room
         socket.join(roomCode);
+        socket.roomCode = roomCode;
+        socket.nickname = nickname;
 
-        // Send the chat history to the new user
+        // Add the nickname to the room's nickname set
+        rooms[roomCode].nicknames.add(nickname);
+
+        // If the room is public, store it in the publicRooms list
+        if (rooms[roomCode].isPublic) {
+            publicRooms[roomCode] = true;
+        }
+
+        console.log(`${nickname} joined room: ${roomCode}`);
+
+        // Send the existing chat history
         socket.emit('chatHistory', rooms[roomCode].messages);
-
-        // Broadcast a welcome message
-        io.to(roomCode).emit('chatMessage', {
-            nickname: 'System',
-            message: `${nickname} has joined the room!`,
-        });
-
-        callback(false); // Success
+        callback(false); // Nickname is unique and accepted
     });
 
-    // Handle new chat messages
+    // Handle new messages
     socket.on('chatMessage', ({ roomCode, message }) => {
         if (!rooms[roomCode]) return; // Ignore if room doesn't exist
 
@@ -66,25 +68,30 @@ io.on('connection', (socket) => {
         io.to(roomCode).emit('chatMessage', { nickname: socket.nickname, message });
     });
 
-    // Handle disconnects
-    socket.on('disconnect', () => {
-        console.log('User disconnected:', socket.id);
+    // Handle user disconnect
+    socket.on('disconnecting', () => {
+        const roomCode = socket.roomCode;
+        const nickname = socket.nickname;
 
-        // Remove user from their room
-        for (const roomCode in rooms) {
-            if (rooms[roomCode].users.includes(socket.nickname)) {
-                rooms[roomCode].users = rooms[roomCode].users.filter(user => user !== socket.nickname);
-                io.to(roomCode).emit('chatMessage', {
-                    nickname: 'System',
-                    message: `${socket.nickname} has left the room.`,
-                });
-                break;
+        if (roomCode && nickname && rooms[roomCode]) {
+            rooms[roomCode].nicknames.delete(nickname);
+            console.log(`${nickname} left room: ${roomCode}`);
+
+            // If the room is empty, clear its messages
+            if (io.sockets.adapter.rooms.get(roomCode)?.size === 1) {
+                delete rooms[roomCode];
+                delete publicRooms[roomCode]; // Remove from public list if empty
+                console.log(`Room ${roomCode} is empty, messages cleared.`);
             }
         }
     });
+
+    // Send the list of public rooms when requested
+    socket.on('getPublicRooms', () => {
+        socket.emit('publicRooms', Object.keys(publicRooms));
+    });
 });
 
-// Start the server
 server.listen(3000, () => {
-    console.log('Server running on http://localhost:3000');
+    console.log('Server is running on http://localhost:3000');
 });
