@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Room</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+        #chatBox {
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            max-width: 600px;
+            margin: 20px auto;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        #messages {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+            max-height: 300px;
+            overflow-y: scroll;
+        }
+        input[type="text"] {
+            width: 80%;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            margin-left: 10px;
+            border-radius: 5px;
+            background-color: #007BFF;
+            color: #fff;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="chatBox">
+        <h2>Chat Room</h2>
+        <ul id="messages"></ul>
+        <input type="text" id="messageInput" placeholder="Type your message..."/>
+        <button id="sendMessageButton">Send</button>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // Extract room code and nickname from the URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomCode = urlParams.get('roomCode');
+        const nickname = urlParams.get('nickname');
+
+        // Connect to the room via Socket.io
+        const socket = io();
+        
+        socket.emit('joinRoom', { roomCode, nickname }, (isNicknameTaken) => {
+            if (isNicknameTaken) {
+                alert('Nickname is already taken!');
+                window.location.href = '/'; // Redirect to the homepage or room selection page
+            } else {
+                console.log(`Joined room: ${roomCode}`);
+            }
+        });
+
+        // Send message when clicking the button or pressing enter
+        document.getElementById('sendMessageButton').onclick = () => {
+            const message = document.getElementById('messageInput').value;
+            if (message.trim()) {
+                socket.emit('chatMessage', { roomCode, message });
+                document.getElementById('messageInput').value = ''; // Clear input field
+            }
+        };
+
+        // Listen for chat messages and append them to the message list
+        socket.on('chatMessage', ({ nickname, message }) => {
+            const messageList = document.getElementById('messages');
+            const listItem = document.createElement('li');
+            listItem.textContent = `${nickname}: ${message}`;
+            messageList.appendChild(listItem);
+            messageList.scrollTop = messageList.scrollHeight; // Auto-scroll to the latest message
+        });
+
+        // Display the chat history when joining
+        socket.on('chatHistory', (messages) => {
+            const messageList = document.getElementById('messages');
+            messages.forEach(msg => {
+                const listItem = document.createElement('li');
+                listItem.textContent = msg;
+                messageList.appendChild(listItem);
+            });
+            messageList.scrollTop = messageList.scrollHeight; // Auto-scroll to the latest message
+        });
+    </script>
+</body>
+</html>
