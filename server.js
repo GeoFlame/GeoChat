@@ -33,7 +33,7 @@ io.on('connection', (socket) => {
         // Add the nickname to the room's nickname set
         rooms[roomCode].nicknames.add(nickname);
 
-        console.log(${nickname} joined room: ${roomCode});
+        console.log(`${nickname} joined room: ${roomCode}`);
 
         // Send the existing chat history
         socket.emit('chatHistory', rooms[roomCode].messages);
