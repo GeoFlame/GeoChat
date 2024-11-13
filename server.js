@@ -9,7 +9,7 @@ const io = new Server(server);
 // Serve static files from the 'public' folder
 app.use(express.static('public'));
 
-const rooms = {}; // In-memory storage for messages, nicknames, and room settings
+const rooms = {}; // In-memory storage for rooms, messages, and nicknames
 
 io.on('connection', (socket) => {
     console.log('A user connected');
@@ -65,7 +65,7 @@ io.on('connection', (socket) => {
         rooms[roomCode].messages.push(fullMessage);
 
         // Broadcast the message to everyone in the room
-        io.to(roomCode).emit('chatMessage', { nickname: socket.nickname, message });
+        io.to(roomCode).emit('chatMessage', { nickname: socket.nickname, message: fullMessage });
     });
 
     // Handle kick command
