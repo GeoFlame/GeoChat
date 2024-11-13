@@ -58,12 +58,12 @@ io.on('connection', (socket) => {
 
         if (roomCode && nickname && rooms[roomCode]) {
             rooms[roomCode].nicknames.delete(nickname);
-            console.log(${nickname} left room: ${roomCode});
+            console.log(`${nickname} left room: ${roomCode}`);
 
             // If the room is empty, clear its messages
             if (io.sockets.adapter.rooms.get(roomCode)?.size === 1) {
                 delete rooms[roomCode];
-                console.log(Room ${roomCode} is empty, messages cleared.);
+                console.log(`Room ${roomCode} is empty, messages cleared.`);
             }
         }
     });
