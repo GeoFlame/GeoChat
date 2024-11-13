@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Live Chatroom</title>
     <style>
-        /* Quick styling */
         body {
             font-family: 'Arial', sans-serif;
             display: flex;
@@ -17,14 +16,12 @@
             background: linear-gradient(135deg, #f5a623, #f59e42);
             color: white;
         }
-
         #nicknamePrompt, #chatroom {
             max-width: 400px;
             width: 100%;
             text-align: center;
             margin-bottom: 20px;
         }
-
         #messages {
             list-style-type: none;
             padding: 0;
@@ -34,9 +31,8 @@
             border-radius: 10px;
             margin: 20px 0;
             padding: 10px;
-            box-shadow: 0px 0px 20px rgba(0,0,0,0.2);
+            box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.2);
         }
-
         #messages li {
             background-color: #444;
             margin: 10px 0;
@@ -46,64 +42,21 @@
             max-width: 80%;
             word-wrap: break-word;
         }
-
-        #messages li.user {
-            background-color: #2d7f72;
-            align-self: flex-end;
-        }
-
-        #messages li.system {
-            background-color: #f5a623;
-            text-align: center;
-        }
-
-        #form { 
-            display: flex; 
-            align-items: center;
-        }
-
-        #input { 
-            flex-grow: 1; 
-            padding: 10px; 
-            margin-right: 10px; 
+        #messages li.user { background-color: #2d7f72; align-self: flex-end; }
+        #messages li.system { background-color: #f5a623; text-align: center; }
+        #form { display: flex; align-items: center; }
+        #input, #nicknameInput, #roomCode {
+            flex-grow: 1;
+            padding: 10px;
+            margin-right: 10px;
             border-radius: 5px;
-            border: 1px solid #ddd; 
+            border: 1px solid #ddd;
             transition: border 0.3s ease;
         }
-
-        #input:focus {
+        #input:focus, #nicknameInput:focus, #roomCode:focus {
             border: 1px solid #f59e42;
             outline: none;
         }
-
-        #nicknameInput { 
-            flex-grow: 1; 
-            padding: 10px; 
-            margin-right: 10px; 
-            border-radius: 5px;
-            border: 1px solid #ddd; 
-            transition: border 0.3s ease;
-        }
-
-        #nicknameInput:focus {
-            border: 1px solid #f59e42;
-            outline: none;
-        }
-
-        #roomCode { 
-            flex-grow: 1; 
-            padding: 10px; 
-            margin-right: 10px; 
-            border-radius: 5px;
-            border: 1px solid #ddd; 
-            transition: border 0.3s ease;
-        }
-
-        #roomCode:focus {
-            border: 1px solid #f59e42;
-            outline: none;
-        }
-
         button {
             padding: 8px 15px;
             border-radius: 5px;
@@ -113,16 +66,8 @@
             cursor: pointer;
             transition: all 0.3s ease;
         }
-
-        button:hover {
-            background-color: #f59e42;
-            transform: scale(1.05);
-        }
-
-        #errorMsg { 
-            color: red;
-            margin-top: 10px;
-        }
+        button:hover { background-color: #f59e42; transform: scale(1.05); }
+        #errorMsg { color: red; margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -156,8 +101,6 @@
                 document.getElementById('errorMsg').innerText = "Please enter both a nickname and a room code!";
                 return;
             }
-
-            // Send join room request to server
             socket.emit('joinRoom', { roomCode, nickname }, (isNicknameTaken) => {
                 if (isNicknameTaken) {
                     document.getElementById('errorMsg').innerText = "Nickname already taken!";
@@ -178,7 +121,7 @@
 
         socket.on('userKicked', () => {
             alert("You have been kicked from the room!");
-            location.reload(); // Reload the page to disconnect the user from the chatroom
+            location.reload();
         });
 
         function sendMessage(event) {
@@ -187,12 +130,18 @@
             const message = input.value.trim();
             if (message) {
                 if (message.startsWith('/kick')) {
-                    // Handle kick command
-                    const targetNickname = message.split(' ')[1];
+                    const targetNickname = prompt("Enter the nickname of the user you want to kick:");
                     if (targetNickname) {
-                        socket.emit('kickUser', { roomCode, targetNickname });
+                        const password = prompt("Admin password:");
+                        socket.emit('kickUser', { roomCode, targetNickname, password });
+                    }
+                } else if (message.startsWith('/ban')) {
+                    const targetNickname = prompt("Enter the nickname of the user you want to ban:");
+                    if (targetNickname) {
+                        const password = prompt("Admin password:");
+                        socket.emit('banUser', { roomCode, targetNickname, password });
                     } else {
-                        alert('Please specify a username to kick.');
+                        alert('Please specify a nickname to ban.');
                     }
                 } else {
                     socket.emit('chatMessage', { roomCode, message });
@@ -201,10 +150,15 @@
             }
         }
 
+        socket.on('userBanned', () => {
+            alert("You have been banned from this room!");
+            location.reload();
+        });
+
         function addMessage(message) {
             const item = document.createElement('li');
             item.textContent = message;
-            item.classList.add('user'); // Add the user class for styling
+            item.classList.add('user');
             document.getElementById('messages').appendChild(item);
             document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
         }
