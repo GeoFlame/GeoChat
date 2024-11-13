@@ -10,6 +10,8 @@ app.use(express.static('public'));
 
 const rooms = {}; // In-memory storage for messages, nicknames, and bans per room
 
+const globalBannedUsers = new Set(); // Global ban list
+
 io.on('connection', (socket) => {
     console.log('A user connected');
 
@@ -17,6 +19,10 @@ io.on('connection', (socket) => {
     socket.on('joinRoom', ({ roomCode, nickname }, callback) => {
         if (!rooms[roomCode]) {
             rooms[roomCode] = { messages: [], nicknames: new Set(), bannedUsers: new Set() };
+        }
+
+        if (globalBannedUsers.has(nickname)) {
+            return callback('You are globally banned from all rooms.');
         }
 
         // Check if the nickname is banned in the room
@@ -112,6 +118,30 @@ io.on('connection', (socket) => {
             }
         } else {
             socket.emit('chatMessage', { nickname: 'System', message: `${targetNickname} is not in the room.` });
+        }
+    });
+
+    // Handle global ban command
+    socket.on('globalBanUser', ({ targetNickname }) => {
+        if (socket.nickname !== 'Geo') {
+            socket.emit('chatMessage', { nickname: 'System', message: 'You do not have permission to perform a global ban.' });
+            return;
+        }
+
+        // Add to global banned list
+        globalBannedUsers.add(targetNickname);
+        io.emit('chatMessage', { nickname: 'System', message: `${targetNickname} has been globally banned from all rooms.` });
+
+        // Disconnect the globally banned user if they are connected
+        const targetSocketId = [...io.sockets.sockets.keys()].find((id) => {
+            const targetSocket = io.sockets.sockets.get(id);
+            return targetSocket && targetSocket.nickname === targetNickname;
+        });
+
+        if (targetSocketId) {
+            const targetSocket = io.sockets.sockets.get(targetSocketId);
+            targetSocket.emit('userBanned', 'You have been globally banned from all rooms.');
+            targetSocket.disconnect();
         }
     });
 
