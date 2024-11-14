@@ -5,16 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Live Chatroom</title>
     <style>
+        /* Quick styling */
         body {
-            font-family: 'Arial', sans-serif;
+            font-family: Arial, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             min-height: 100vh;
             margin: 0;
-            background: linear-gradient(135deg, #f5a623, #f59e42);
-            color: white;
+            background-color: #f5f5f5;
         }
         #nicknamePrompt, #chatroom {
             max-width: 400px;
@@ -27,47 +27,14 @@
             padding: 0;
             height: 300px;
             overflow-y: auto;
-            background-color: #333;
-            border-radius: 10px;
+            background-color: #fff;
+            border: 1px solid #ddd;
             margin: 20px 0;
             padding: 10px;
-            box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.2);
         }
-        #messages li {
-            background-color: #444;
-            margin: 10px 0;
-            padding: 8px;
-            border-radius: 8px;
-            color: #fff;
-            max-width: 80%;
-            word-wrap: break-word;
-        }
-        #messages li.user { background-color: #2d7f72; align-self: flex-end; }
-        #messages li.system { background-color: #f5a623; text-align: center; }
-        #form { display: flex; align-items: center; }
-        #input, #nicknameInput, #roomCode {
-            flex-grow: 1;
-            padding: 10px;
-            margin-right: 10px;
-            border-radius: 5px;
-            border: 1px solid #ddd;
-            transition: border 0.3s ease;
-        }
-        #input:focus, #nicknameInput:focus, #roomCode:focus {
-            border: 1px solid #f59e42;
-            outline: none;
-        }
-        button {
-            padding: 8px 15px;
-            border-radius: 5px;
-            background-color: #f5a623;
-            color: white;
-            border: none;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        button:hover { background-color: #f59e42; transform: scale(1.05); }
-        #errorMsg { color: red; margin-top: 10px; }
+        #form { display: flex; }
+        #input { flex-grow: 1; padding: 8px; }
+        #errorMsg { color: red; }
     </style>
 </head>
 <body>
@@ -101,17 +68,17 @@
                 document.getElementById('errorMsg').innerText = "Please enter both a nickname and a room code!";
                 return;
             }
-            socket.emit('joinRoom', { roomCode, nickname }, (error) => {
-                if (error) {
-                    document.getElementById('errorMsg').innerText = error; // Show any error from the server
+
+            // Send join room request to server
+            socket.emit('joinRoom', { roomCode, nickname }, (isNicknameTaken) => {
+                if (isNicknameTaken) {
+                    document.getElementById('errorMsg').innerText = "Nickname already taken!";
                 } else {
-                    // No error, proceed to show the chatroom
                     document.getElementById('nicknamePrompt').style.display = 'none';
                     document.getElementById('chatroom').style.display = 'block';
                 }
             });
         }
-
 
         socket.on('chatHistory', (messages) => {
             messages.forEach((msg) => addMessage(msg));
@@ -121,48 +88,11 @@
             addMessage(`[${nickname}]: ${message}`);
         });
 
-        socket.on('userKicked', () => {
-            alert("You have been kicked from the room!");
-            location.reload();
-        });
-
-        socket.on('userBanned', () => {
-            alert("You have been banned from this room!");
-            location.reload();
-        });
-
         function sendMessage(event) {
             event.preventDefault();
             const input = document.getElementById('input');
-            const message = input.value.trim();
-            if (message) {
-                if (message.startsWith('/kick')) {
-                    const targetNickname = prompt("Enter the nickname of the user you want to kick:");
-                    if (targetNickname) {
-                        const password = prompt("Admin password:");
-                        socket.emit('kickUser', { roomCode, targetNickname, password });
-                    }
-                } else if (message.startsWith('/ban')) {
-                    const targetNickname = prompt("Enter the nickname of the user you want to ban:");
-                    if (targetNickname) {
-                        const password = prompt("Admin password:");
-                        socket.emit('banUser', { roomCode, targetNickname, password });
-                    } else {
-                        alert('Please specify a nickname to ban.');
-                    }
-                    
-                } else if (message.startsWith('/gban')) {
-                    const targetNickname = prompt("Enter the nickname of the user you want to globally ban:");
-                    if (targetNickname) {
-                        const password = prompt("Admin password:");
-                        socket.emit('globalBanUser', { roomCode, targetNickname, password });
-                    } else {
-                        alert('Please specify a nickname to globally ban.');
-                    }
-                    
-                } else {
-                    socket.emit('chatMessage', { roomCode, message });
-                }
+            if (input.value) {
+                socket.emit('chatMessage', { roomCode, message: input.value });
                 input.value = '';
             }
         }
@@ -170,7 +100,6 @@
         function addMessage(message) {
             const item = document.createElement('li');
             item.textContent = message;
-            item.classList.add('user');
             document.getElementById('messages').appendChild(item);
             document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
         }
